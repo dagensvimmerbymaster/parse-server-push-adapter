@@ -29,7 +29,7 @@ export class APNS {
     this.providers = [];
 
     // Since for ios, there maybe multiple cert/key pairs, typePushConfig can be an array.
-    let apnsArgsList = [];
+    this.apnsArgsList = [];
     if (Array.isArray(args)) {
       apnsArgsList = apnsArgsList.concat(args);
     } else if (typeof args === 'object') {
@@ -37,9 +37,18 @@ export class APNS {
     } else {
       throw new Parse.Error(Parse.Error.PUSH_MISCONFIGURED, 'APNS Configuration is invalid');
     }
+  }
 
+  shutdownProviders() {
+    for (let provider in this.providers) {
+      provider.shutdown()
+    }
+    this.providers = []
+  }
+
+  setUpProviders() {
     // Create Provider from each arg-object
-    for (let apnsArgs of apnsArgsList) {
+    for (let apnsArgs of this.apnsArgsList) {
 
       // rewrite bundleId to topic for backward-compatibility
       if (apnsArgs.bundleId) {
@@ -70,6 +79,8 @@ export class APNS {
    * @returns {Object} A promise which is resolved immediately
    */
   send(data, allDevices) {
+    this.setUpProviders()
+
     let coreData = data.data;
     let expirationTime = data['expiration_time'] || coreData['expiration_time'];
     let collapseId = data['collapse_id'] || coreData['collapse_id'];
@@ -106,6 +117,8 @@ export class APNS {
     }
 
     return Promise.all(allPromises).then((results) => {
+      this.shutdownProviders()
+
       // flatten all
       return [].concat.apply([], results);
     });
