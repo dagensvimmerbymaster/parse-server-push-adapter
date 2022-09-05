@@ -26,7 +26,7 @@ export class APNS {
    */
   constructor(args) {
     // Define class members
-    this.providers = [];
+    //this.providers = [];
 
     // Since for ios, there maybe multiple cert/key pairs, typePushConfig can be an array.
     this.apnsArgsList = [];
@@ -39,38 +39,6 @@ export class APNS {
     }
   }
 
-  shutdownProviders() {
-    for (let provider of this.providers) {
-      provider.shutdown()
-    }
-    this.providers = []
-  }
-
-  setUpProviders() {
-    // Create Provider from each arg-object
-    for (let apnsArgs of this.apnsArgsList) {
-
-      // rewrite bundleId to topic for backward-compatibility
-      if (apnsArgs.bundleId) {
-        log.warn(LOG_PREFIX, 'bundleId is deprecated, use topic instead');
-        apnsArgs.topic = apnsArgs.bundleId
-      }
-
-      let provider = APNS._createProvider(apnsArgs);
-      this.providers.push(provider);
-    }
-
-    // Sort the providers based on priority ascending, high pri first
-    this.providers.sort((s1, s2) => {
-      return s1.priority - s2.priority;
-    });
-
-    // Set index-property of providers
-    for (let index = 0; index < this.providers.length; index++) {
-      this.providers[index].index = index;
-    }
-  }
-
   /**
    * Send apns request.
    *
@@ -79,7 +47,7 @@ export class APNS {
    * @returns {Object} A promise which is resolved immediately
    */
   send(data, allDevices) {
-    this.setUpProviders()
+    let currentProviders = APNS._setUpProviders()
 
     let coreData = data.data;
     let expirationTime = data['expiration_time'] || coreData['expiration_time'];
@@ -100,7 +68,7 @@ export class APNS {
     for (let key in devicesPerAppIdentifier) {
       let devices = devicesPerAppIdentifier[key];
       let appIdentifier = devices[0].appIdentifier;
-      let providers = this._chooseProviders(appIdentifier);
+      let providers = this._chooseProviders(appIdentifier, currentProviders);
 
       // No Providers found
       if (!providers || providers.length === 0) {
@@ -117,7 +85,7 @@ export class APNS {
     }
 
     return Promise.all(allPromises).then((results) => {
-      this.shutdownProviders()
+      APNS._shutdownProviders(currentProviders)
       
       // flatten all
       return [].concat.apply([], results);
@@ -145,6 +113,40 @@ export class APNS {
             return response;
           }
         });
+  }
+
+  static _shutdownProviders(providers) {
+    for (let provider of providers) {
+      provider.shutdown()
+    }
+  }
+
+  static _setUpProviders() {
+    let providers = []
+    // Create Provider from each arg-object
+    for (let apnsArgs of this.apnsArgsList) {
+
+      // rewrite bundleId to topic for backward-compatibility
+      if (apnsArgs.bundleId) {
+        log.warn(LOG_PREFIX, 'bundleId is deprecated, use topic instead');
+        apnsArgs.topic = apnsArgs.bundleId
+      }
+
+      let provider = APNS._createProvider(apnsArgs);
+      providers.push(provider);
+    }
+
+    // Sort the providers based on priority ascending, high pri first
+    providers.sort((s1, s2) => {
+      return s1.priority - s2.priority;
+    });
+
+    // Set index-property of providers
+    for (let index = 0; index < providers.length; index++) {
+      providers[index].index = index;
+    }
+
+    return providers
   }
 
   static _validateAPNArgs(apnsArgs) {
@@ -247,29 +249,53 @@ export class APNS {
     return notification;
   }
 
-  /**
+    /**
    * Choose appropriate providers based on device appIdentifier.
    *
    * @param {String} appIdentifier appIdentifier for required provider
    * @returns {Array} Returns Array with appropriate providers
    */
-  _chooseProviders(appIdentifier) {
-    // If the device we need to send to does not have appIdentifier, any provider could be a qualified provider
-    /*if (!appIdentifier || appIdentifier === '') {
-        return this.providers.map((provider) => provider.index);
-    }*/
-
-    // Otherwise we try to match the appIdentifier with topic on provider
-    let qualifiedProviders = this.providers.filter((provider) => appIdentifier === provider.topic);
-
-    if (qualifiedProviders.length > 0) {
-      return qualifiedProviders;
+     _chooseProviders(appIdentifier, providers) {
+      // If the device we need to send to does not have appIdentifier, any provider could be a qualified provider
+      /*if (!appIdentifier || appIdentifier === '') {
+          return this.providers.map((provider) => provider.index);
+      }*/
+  
+      // Otherwise we try to match the appIdentifier with topic on provider
+      let qualifiedProviders = providers.filter((provider) => appIdentifier === provider.topic);
+  
+      if (qualifiedProviders.length > 0) {
+        return qualifiedProviders;
+      }
+  
+      // If qualifiedProviders empty, add all providers without topic
+      return providers
+        .filter((provider) => !provider.topic || provider.topic === '');
     }
 
-    // If qualifiedProviders empty, add all providers without topic
-    return this.providers
-      .filter((provider) => !provider.topic || provider.topic === '');
-  }
+  // /**
+  //  * Choose appropriate providers based on device appIdentifier.
+  //  *
+  //  * @param {String} appIdentifier appIdentifier for required provider
+  //  * @returns {Array} Returns Array with appropriate providers
+  //  */
+  // _chooseProviders(appIdentifier) {
+  //   // If the device we need to send to does not have appIdentifier, any provider could be a qualified provider
+  //   /*if (!appIdentifier || appIdentifier === '') {
+  //       return this.providers.map((provider) => provider.index);
+  //   }*/
+
+  //   // Otherwise we try to match the appIdentifier with topic on provider
+  //   let qualifiedProviders = this.providers.filter((provider) => appIdentifier === provider.topic);
+
+  //   if (qualifiedProviders.length > 0) {
+  //     return qualifiedProviders;
+  //   }
+
+  //   // If qualifiedProviders empty, add all providers without topic
+  //   return this.providers
+  //     .filter((provider) => !provider.topic || provider.topic === '');
+  // }
 
   _handlePromise(response) {
     let promises = [];
