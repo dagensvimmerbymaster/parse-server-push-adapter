@@ -47,7 +47,7 @@ export class APNS {
    * @returns {Object} A promise which is resolved immediately
    */
   send(data, allDevices) {
-    let currentProviders = APNS._setUpProviders()
+    let currentProviders = APNS._setUpProviders(this.apnsArgsList)
 
     let coreData = data.data;
     let expirationTime = data['expiration_time'] || coreData['expiration_time'];
@@ -121,10 +121,10 @@ export class APNS {
     }
   }
 
-  static _setUpProviders() {
+  static _setUpProviders(apnsArgsList) {
     let providers = []
     // Create Provider from each arg-object
-    for (let apnsArgs of this.apnsArgsList) {
+    for (let apnsArgs of apnsArgsList) {
 
       // rewrite bundleId to topic for backward-compatibility
       if (apnsArgs.bundleId) {
