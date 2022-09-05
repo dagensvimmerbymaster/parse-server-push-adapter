@@ -79,6 +79,7 @@ export class APNS {
    * @returns {Object} A promise which is resolved immediately
    */
   send(data, allDevices) {
+    this.shutdownProviders()
     this.setUpProviders()
 
     let coreData = data.data;
@@ -117,8 +118,6 @@ export class APNS {
     }
 
     return Promise.all(allPromises).then((results) => {
-      this.shutdownProviders()
-
       // flatten all
       return [].concat.apply([], results);
     });
