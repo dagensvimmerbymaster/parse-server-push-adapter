@@ -31,9 +31,9 @@ export class APNS {
     // Since for ios, there maybe multiple cert/key pairs, typePushConfig can be an array.
     this.apnsArgsList = [];
     if (Array.isArray(args)) {
-      apnsArgsList = apnsArgsList.concat(args);
+      this.apnsArgsList = this.apnsArgsList.concat(args);
     } else if (typeof args === 'object') {
-      apnsArgsList.push(args);
+      this.apnsArgsList.push(args);
     } else {
       throw new Parse.Error(Parse.Error.PUSH_MISCONFIGURED, 'APNS Configuration is invalid');
     }
