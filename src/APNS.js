@@ -40,7 +40,7 @@ export class APNS {
   }
 
   shutdownProviders() {
-    for (let provider in this.providers) {
+    for (let provider of this.providers) {
       provider.shutdown()
     }
     this.providers = []
@@ -79,7 +79,6 @@ export class APNS {
    * @returns {Object} A promise which is resolved immediately
    */
   send(data, allDevices) {
-    this.shutdownProviders()
     this.setUpProviders()
 
     let coreData = data.data;
@@ -118,6 +117,8 @@ export class APNS {
     }
 
     return Promise.all(allPromises).then((results) => {
+      this.shutdownProviders()
+      
       // flatten all
       return [].concat.apply([], results);
     });
